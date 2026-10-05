@@ -4,6 +4,69 @@
 
 The Entity Resolution Platform implements **Progressive Entity Enrichment** - the core capability where a record found using one identifier reveals additional identifiers, which are then used to discover more records across other datasets until the entity is fully enriched.
 
+## Architecture Diagram (Mermaid)
+
+Renders automatically on GitHub and in the video walkthrough.
+
+```mermaid
+flowchart TB
+    subgraph Clients["Clients · static HTML/CSS/JS, no build step"]
+        LP["Landing page<br/>index.html · overview + demo flow"]
+        WS["Workspace app<br/>app.html · dashboard → search"]
+        LG["Login page<br/>login.html · sign in / sign up"]
+        RC["REST consumers<br/>evaluators · scripts · /docs"]
+    end
+
+    subgraph API["API layer · FastAPI + Pydantic"]
+        AUTH["auth<br/>config · me · token verify"]
+        R1["sources<br/>upload · schema · mapping"]
+        R2["processing<br/>jobs · resume · stats"]
+        R3["search<br/>enrich · suggest"]
+        R4["entities<br/>graph · history · trace"]
+    end
+
+    subgraph Services["Services · batched, resumable"]
+        ING["Ingest<br/>CSV · SQL dumps · parts"]
+        MAP["Map<br/>NIM AI + rule fallback"]
+        NRM["Normalize<br/>raw + clean preserved"]
+        MCH["Match<br/>email → phone → user → ID"]
+        ENR["★ Enrich (BFS)<br/>identifiers until exhaustion"]
+        CCH["Cache<br/>Redis or in-memory"]
+        QLT["Quality<br/>profile · fuzzy · dedup"]
+    end
+
+    subgraph Data["Data · Firestore (+ optional Redis)"]
+        FS[("Firestore<br/>sources · records<br/>entities · jobs · indexes")]
+        RD[("Redis<br/>search cache")]
+    end
+
+    LG --> WS
+    LP --> WS
+    WS --> AUTH & R1 & R2 & R3 & R4
+    RC --> AUTH & R1 & R2 & R3 & R4
+    R1 --> ING & MAP & QLT
+    R2 --> NRM & MCH
+    R3 --> ENR & CCH
+    R4 --> ENR
+    ING & NRM & MCH & ENR --> FS
+    CCH --> RD
+
+    style ENR fill:#f4ebd7,stroke:#d2a24c,stroke-width:2px
+    style FS fill:#dcece4,stroke:#28584c,stroke-width:2px
+```
+
+## Progressive Enrichment Flow (Mermaid)
+
+```mermaid
+flowchart LR
+    Q["Search<br/>john@example.com"] --> A["Database A<br/>email match<br/>+ phone 9876543210"]
+    A --> B["Database B<br/>phone match<br/>+ address Mumbai"]
+    B --> C["Database C<br/>username johndoe<br/>+ company ABC Pvt Ltd"]
+    C --> D["Database D<br/>member MEM1042<br/>confirms entity"]
+    D --> M(["MASTER ENTITY<br/>John Doe · 7 fields · 4 sources"])
+    M --> T["Traceability<br/>every field → source/row/value"]
+```
+
 ## System Architecture
 
 ```
