@@ -201,13 +201,15 @@ Recommended: **Netlify** for the static frontend, **Render** for the FastAPI bac
 4. Add every variable from `.env` as environment variables (paste the private key with real newlines).
 5. Note the service URL, e.g. `https://concordia-api.onrender.com`.
 
-### Frontend on Netlify
+### Frontend on Netlify or Vercel
 
-1. Netlify → **Add new site → Import from Git** → same repo, publish directory: `frontend` (no build command).
-2. In `frontend/_redirects`, replace `YOUR-RENDER-APP` with your Render service name.
-3. The app auto-uses relative `/api` in production (proxied to Render, no CORS issues).
-4. Back on Render, set `FRONTEND_URLS=https://YOUR-SITE.netlify.app` and redeploy.
-5. Seed the demo admin once via Render → **Shell**: `python backend/seed_admin.py`.
+**Vercel:** Import the repo → set **Root Directory** to `frontend` → Framework Preset **Other** → no build command → Deploy. (`vercel.json` rewrites are a fallback; the app calls the Render URL directly.)
+**Netlify:** New site from Git → **Publish directory** `frontend`, no build command.
+In both cases the app auto-selects the backend (local `:8000` if running, else live Render).
+
+Then, mandatory for either host — back on Render, set `FRONTEND_URLS=https://YOUR-SITE.vercel.app`
+(or `.netlify.app`) and redeploy, otherwise the browser blocks direct API calls (CORS).
+Seed the demo admin once via Render → **Shell**: `python backend/seed_admin.py`.
 
 Free-tier note: Render sleeps after inactivity — the first search after idle takes ~30s to wake. Firestore data persists regardless.
 

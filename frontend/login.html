@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/styles.css?v=3">
+    <link rel="stylesheet" href="/css/styles.css?v=4">
     <link rel="stylesheet" href="/css/landing.css?v=2">
     <style>
         .login-page { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
@@ -38,7 +38,7 @@
             .login-side { padding: 36px 24px; }
         }
     </style>
-    <script type="module" src="/js/login.js?v=2"></script>
+    <script type="module" src="/js/login.js?v=3"></script>
 </head>
 <body class="landing">
     <main class="login-page">
@@ -60,6 +60,7 @@
                 <p class="eyebrow">CONCORDIA WORKSPACE</p>
                 <h2 id="auth-title">Sign in</h2>
                 <p id="auth-subtitle">Welcome back. Your sources and entities are waiting.</p>
+                <p id="wake-status" class="wake-line" role="status" hidden><span class="mini-spinner" aria-hidden="true"></span><span id="wake-text">Waking the backend…</span></p>
                 <div class="login-tabs" role="tablist" aria-label="Sign in or create account">
                     <button type="button" id="tab-signin" class="active" role="tab" aria-selected="true">Sign in</button>
                     <button type="button" id="tab-signup" role="tab" aria-selected="false">Create account</button>

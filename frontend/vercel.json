@@ -3,11 +3,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://YOUR-RENDER-APP.onrender.com/api/:path*"
+      "destination": "https://concordia-api-yl14.onrender.com/api/:path*"
     },
     {
       "source": "/health",
-      "destination": "https://YOUR-RENDER-APP.onrender.com/health"
+      "destination": "https://concordia-api-yl14.onrender.com/health"
     }
   ]
 }

@@ -1,14 +1,46 @@
 // API Client for Concordia Entity Resolution Platform
-// Local dev: backend on :8000. Production (Netlify/Vercel): relative /api
-// is proxied to the Render backend (see frontend/_redirects, vercel.json).
+//
+// Origin resolution (per page load):
+//   1. Local dev backend (:8000) if it answers — fastest, preferred.
+//   2. Otherwise the live Render backend — so the site works even with
+//      no local server running.
+// Note: 0.0.0.0 is mapped to localhost because browsers refuse to
+// route 0.0.0.0 as a destination.
+const RENDER_API = 'https://concordia-api-yl14.onrender.com';
 const _host = window.location.hostname;
-const _isLocal = _host === 'localhost' || _host === '127.0.0.1' || _host === '0.0.0.0';
-const API_ORIGIN = `${window.location.protocol}//${_host}:8000`;
-const API_BASE = _isLocal ? `${API_ORIGIN}/api` : '/api';
+const _isLocalHost = _host === 'localhost' || _host === '127.0.0.1' || _host === '0.0.0.0';
+const _fetchHost = _host === '0.0.0.0' ? 'localhost' : _host;
+const LOCAL_API = `${window.location.protocol}//${_fetchHost}:8000`;
+
+let _resolvedOrigin = null;
+
+async function _probe(url, timeoutMs) {
+    try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+        const response = await fetch(`${url}/health`, { signal: ctrl.signal });
+        clearTimeout(timer);
+        return response.ok;
+    } catch {
+        return false;
+    }
+}
+
+/** Pick a working backend origin. Result is cached for the page lifetime. */
+export async function resolveOrigin() {
+    if (_resolvedOrigin) return _resolvedOrigin;
+    if (!_isLocalHost) {
+        _resolvedOrigin = RENDER_API;
+    } else if (await _probe(LOCAL_API, 5000)) {
+        _resolvedOrigin = LOCAL_API;
+    } else {
+        _resolvedOrigin = RENDER_API;
+    }
+    return _resolvedOrigin;
+}
 
 class ApiClient {
     constructor() {
-        this.baseUrl = API_BASE;
         this.authProvider = null;
     }
 
@@ -17,9 +49,10 @@ class ApiClient {
     }
 
     async request(endpoint, options = {}) {
+        const origin = await resolveOrigin();
         const url = endpoint === '/health'
-            ? (_isLocal ? `${API_ORIGIN}/health` : '/health')
-            : `${this.baseUrl}${endpoint}`;
+            ? `${origin}/health`
+            : `${origin}/api${endpoint}`;
         const isFormData = options.body instanceof FormData;
         const headers = {
             ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
@@ -57,6 +90,32 @@ class ApiClient {
     // Health
     async health() {
         return this.request('/health');
+    }
+
+    /**
+     * Render free tier sleeps when idle; first contact can take ~30-60s.
+     * Resolves the working origin first (local preferred, live fallback),
+     * then polls /health until awake or timeout. Returns true when ready.
+     */
+    async warmup({ timeoutMs = 120000, intervalMs = 3000, onAttempt = null } = {}) {
+        const origin = await resolveOrigin();
+        const deadline = Date.now() + timeoutMs;
+        let attempt = 0;
+        for (;;) {
+            attempt += 1;
+            try {
+                const ctrl = new AbortController();
+                const timer = setTimeout(() => ctrl.abort(), 20000);
+                const response = await fetch(`${origin}/health`, { signal: ctrl.signal });
+                clearTimeout(timer);
+                if (response.ok) return true;
+            } catch {
+                // Asleep, unreachable, or slow — keep polling until deadline
+            }
+            if (onAttempt) onAttempt(attempt);
+            if (Date.now() >= deadline) return false;
+            await new Promise((resolve) => setTimeout(resolve, intervalMs));
+        }
     }
 
     // Auth

@@ -1,4 +1,4 @@
-import api from './api.js?v=3';
+import api from './api.js?v=4';
 import * as auth from './auth.js?v=3';
 
 const canonicalFields = ['', 'email', 'phone', 'username', 'member_id', 'name', 'address', 'company'];
@@ -30,11 +30,25 @@ async function initialize() {
     }).format(new Date()).toUpperCase();
     bindEvents();
     api.setAuthProvider(() => auth.ensureToken());
+    const awake = await warmBackend();
+    if (!awake) return;
     const allowed = await initAuth();
     if (!allowed) return;
     await refreshConnection();
     await loadDashboard();
     await loadSources();
+}
+
+/** Block boot on backend readiness; the existing nav progress bar is the
+indicator — no overlay, the shell stays visible behind it. */
+async function warmBackend() {
+    showNavLoader();
+    const ready = await api.warmup({});
+    hideNavLoader();
+    if (!ready) {
+        showToast('The backend is not responding. Reload the page to retry.', true);
+    }
+    return ready;
 }
 
 /** Auth gate: returns true when the workspace may load. */
