@@ -93,28 +93,19 @@ class ApiClient {
     }
 
     /**
-     * Render free tier sleeps when idle; first contact can take ~30-60s.
-     * Resolves the working origin first (local preferred, live fallback),
-     * then polls /health until awake or timeout. Returns true when ready.
+     * Wait until the backend answers. ONE request, no per-attempt aborts:
+     * aborting early is what broke cold starts (Render can need 30-60s,
+     * longer than any retry interval). Returns true when ready.
      */
-    async warmup({ timeoutMs = 120000, intervalMs = 3000, onAttempt = null } = {}) {
-        const origin = await resolveOrigin();
-        const deadline = Date.now() + timeoutMs;
-        let attempt = 0;
-        for (;;) {
-            attempt += 1;
-            try {
-                const ctrl = new AbortController();
-                const timer = setTimeout(() => ctrl.abort(), 20000);
-                const response = await fetch(`${origin}/health`, { signal: ctrl.signal });
-                clearTimeout(timer);
-                if (response.ok) return true;
-            } catch {
-                // Asleep, unreachable, or slow — keep polling until deadline
-            }
-            if (onAttempt) onAttempt(attempt);
-            if (Date.now() >= deadline) return false;
-            await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    async warmup({ timeoutMs = 120000, onAttempt = null } = {}) {
+        try {
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+            const response = await fetch(`${await resolveOrigin()}/health`, { signal: ctrl.signal });
+            clearTimeout(timer);
+            return response.ok;
+        } catch {
+            return false;
         }
     }
 

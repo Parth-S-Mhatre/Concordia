@@ -1,6 +1,6 @@
 // Dedicated login / signup page. On success → workspace (app.html).
 // Already signed in → skip straight through.
-import api from './api.js?v=4';
+import api from './api.js?v=5';
 import * as auth from './auth.js?v=3';
 
 const state = { mode: 'signin', config: null };
@@ -25,14 +25,9 @@ async function initialize() {
         const text = document.getElementById('wake-text');
         const submit = document.getElementById('auth-submit');
         line.hidden = false;
+        text.textContent = 'Contacting the backend — about 30 seconds if it was idle.';
         submit.disabled = true;
-        const ready = await api.warmup({
-            onAttempt: (n) => {
-                text.textContent = n <= 1
-                    ? 'Waking the backend — about 30 seconds after idle.'
-                    : `Still waking… (attempt ${n})`;
-            },
-        });
+        const ready = await api.warmup({});
         line.hidden = true;
         submit.disabled = false;
         if (!ready) {

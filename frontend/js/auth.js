@@ -1,7 +1,7 @@
 // Firebase Authentication client (REST, no SDK needed).
 // Sign-in uses IdentityToolkit; refresh uses SecureToken; the backend
 // verifies ID tokens with the Admin SDK and serves the public config.
-import api from './api.js?v=4';
+import api from './api.js?v=5';
 
 const SESSION_KEY = 'cg_auth';
 // Default demo-admin password (seed_admin.py). If DEMO_ADMIN_PASSWORD was

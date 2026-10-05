@@ -1,4 +1,4 @@
-import api from './api.js?v=4';
+import api from './api.js?v=5';
 import * as auth from './auth.js?v=3';
 
 const canonicalFields = ['', 'email', 'phone', 'username', 'member_id', 'name', 'address', 'company'];
