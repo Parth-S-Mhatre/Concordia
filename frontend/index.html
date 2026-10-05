@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#173b35">
+    <meta name="description" content="Concordia — a multi-database entity resolution platform with progressive entity enrichment. Connect CSV and SQL sources into one searchable master repository.">
+    <title>Concordia | Multi-Database Entity Resolution</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css?v=3">
+    <link rel="stylesheet" href="/css/landing.css?v=2">
+</head>
+<body class="landing">
+    <nav class="landing-nav" aria-label="Landing navigation">
+        <div class="landing-nav-inner">
+            <a class="landing-brand" href="/index.html" aria-label="Concordia home">
+                <span class="brand-mark" aria-hidden="true" style="border-color:#87aa98"><i></i><i></i><i></i></span>
+                <span><strong>concordia</strong><small>ONE ENTITY · EVERY SOURCE</small></span>
+            </a>
+            <div class="landing-links">
+                <a href="#how">How it works</a>
+                <a href="#enrichment">Enrichment</a>
+                <a href="#demo-data">Demo data</a>
+                <a href="#features">Features</a>
+            </div>
+            <a class="button button-dark" href="/login.html">Open workspace <span aria-hidden="true">→</span></a>
+        </div>
+    </nav>
+
+    <main>
+        <div class="landing-wrap">
+            <section class="hero">
+                <div>
+                    <p class="eyebrow">MULTI-DATABASE ENTITY RESOLUTION</p>
+                    <h1>Disconnected datasets, <em>one connected repository.</em></h1>
+                    <p class="hero-intro">Concordia ingests CSV and SQL sources with different schemas, cleans and maps their fields, and progressively links records that describe the same real-world person — keeping the source of every fact.</p>
+                    <div class="hero-cta">
+                        <a class="button button-dark" href="/login.html">Open workspace <span aria-hidden="true">→</span></a>
+                        <a class="button button-quiet" href="#enrichment">See enrichment flow</a>
+                        <a class="button button-outline" href="/architecture.html">Architecture</a>
+                    </div>
+                    <div class="hero-meta">
+                        <span>NO LOGIN NEEDED</span>
+                        <span>CSV + SQL DUMPS</span>
+                        <span>BATCHED FOR 100K+ ROWS</span>
+                    </div>
+                </div>
+                <article class="demo-card" aria-label="Progressive enrichment example">
+                    <div class="demo-card-head">
+                        <p class="eyebrow">PROGRESSIVE ENTITY ENRICHMENT</p>
+                        <h2>One clue is enough to begin</h2>
+                        <p>SEARCH → DISCOVER → SEARCH AGAIN → UNIFIED PROFILE</p>
+                    </div>
+                    <p class="demo-query">Search: john@example.com</p>
+                    <ol class="demo-steps">
+                        <li data-step="1"><code>Database A</code> matches the email — finds John Doe + phone <code>9876543210</code></li>
+                        <li data-step="2">New phone identifier searches remaining sources — <code>Database B</code> adds address <code>Mumbai</code></li>
+                        <li data-step="3">Discovered username <code>johndoe</code> finds <code>Database C</code> — adds company <code>ABC Pvt Ltd</code></li>
+                        <li data-step="4">Discovered member ID <code>MEM1042</code> finds <code>Database D</code> — confirms the same entity</li>
+                    </ol>
+                    <div class="demo-entity">
+                        <strong>Master Entity · John Doe</strong>
+                        <div class="source-tags">
+                            <span class="source-tag">HR Database</span>
+                            <span class="source-tag">Business Directory</span>
+                            <span class="source-tag">Startup Database</span>
+                            <span class="source-tag">Contact Database</span>
+                        </div>
+                    </div>
+                </article>
+            </section>
+        </div>
+
+        <div class="strip" aria-label="Platform highlights">
+            <div class="landing-wrap strip-inner">
+                <div class="strip-cell"><strong>4+</strong><span>demo sources, different schemas, overlapping people</span></div>
+                <div class="strip-cell"><strong>100K+</strong><span>record scale via batched background jobs</span></div>
+                <div class="strip-cell"><strong>7</strong><span>canonical fields with raw + normalized traceability</span></div>
+                <div class="strip-cell"><strong>0</strong><span>logins — evaluators can search immediately</span></div>
+            </div>
+        </div>
+
+        <div class="landing-wrap">
+            <section class="section" id="how">
+                <div class="section-head">
+                    <p class="eyebrow">DATABASE IMPORT WORKFLOW</p>
+                    <h2>From raw upload to unified entity</h2>
+                    <p>The same pipeline runs for every source — CSV or SQL — with human review before records are processed.</p>
+                </div>
+                <div class="steps-grid">
+                    <div class="step-card"><span>01 / INGEST</span><h3>Bring a source in</h3><p>Upload CSV or SQL dump, including multi-part datasets and multi-table databases. Schema and tables are detected automatically.</p></div>
+                    <div class="step-card"><span>02 / MAP</span><h3>Review field mapping</h3><p>AI-assisted suggestions map email_id → email, contact_no → phone. Your review is final before processing.</p></div>
+                    <div class="step-card"><span>03 / CLEAN</span><h3>Normalize values</h3><p>Emails lowercased, phones de-formatted, whitespace collapsed. Raw and normalized values are both preserved.</p></div>
+                    <div class="step-card"><span>04 / INDEX</span><h3>Build lookup indexes</h3><p>Batch-written email, phone, username, and member-ID indexes keep repeated matching fast at scale.</p></div>
+                    <div class="step-card"><span>05 / MATCH</span><h3>Resolve across sources</h3><p>Configurable hierarchy — email, phone, username, member ID, then fuzzy rules — links records without duplicating entities.</p></div>
+                    <div class="step-card"><span>06 / ENRICH</span><h3>Grow master profiles</h3><p>Every new dataset re-checks existing entities, enriches matches, and keeps unmatched records for future matching.</p></div>
+                </div>
+            </section>
+
+            <section class="section" id="enrichment" style="padding-top:0">
+                <div class="section-head">
+                    <p class="eyebrow">CORE WINNING FEATURE</p>
+                    <h2>Progressive enrichment, step by step</h2>
+                    <p>Searching never stops at the first match. Each record can reveal identifiers that unlock the next source.</p>
+                </div>
+                <div class="flow">
+                    <div class="flow-cell"><span class="flow-arrow">STEP 01 →</span><h3>Search email</h3><p><code>john@example.com</code> hits the email index across all sources.</p></div>
+                    <div class="flow-cell"><span class="flow-arrow">STEP 02 →</span><h3>Discover phone</h3><p>Database A contributes <code>9876543210</code>; the engine re-searches by phone.</p></div>
+                    <div class="flow-cell"><span class="flow-arrow">STEP 03 →</span><h3>Discover username</h3><p>Database B/C contribute <code>johndoe</code> and address; search continues.</p></div>
+                    <div class="flow-cell"><span class="flow-arrow">STEP 04 ✓</span><h3>Unified entity</h3><p>All <code>4 sources</code> merge into John Doe with full provenance. Stops when nothing new is found.</p></div>
+                </div>
+            </section>
+
+            <section class="section" id="demo-data" style="padding-top:0">
+                <div class="section-head">
+                    <p class="eyebrow">MANDATORY DATASET DEMONSTRATION</p>
+                    <h2>Different columns, same people</h2>
+                    <p>Four demo sources in <code style="font:11px var(--mono)">data/demo/</code> use intentionally different schemas with guaranteed overlaps.</p>
+                </div>
+                <table class="schema-table">
+                    <thead><tr><th>Database</th><th>Column example</th><th>Overlap</th></tr></thead>
+                    <tbody>
+                        <tr><td>Database A</td><td><code>email, full_name, mobile_number</code></td><td>Email + phone</td></tr>
+                        <tr><td>Database B</td><td><code>email_id, name, contact_no, address</code></td><td>Email</td></tr>
+                        <tr><td>Database C</td><td><code>username, phone, company</code></td><td>Phone</td></tr>
+                        <tr><td>Database D</td><td><code>member_id, email, username</code></td><td>Email + username</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="section" id="features" style="padding-top:0">
+                <div class="section-head">
+                    <p class="eyebrow">PLATFORM CAPABILITIES</p>
+                    <h2>Everything the assignment asks for</h2>
+                    <p>Ingestion, mapping, cleaning, matching, enrichment, repository management, large-data processing, and intelligent search.</p>
+                </div>
+                <div class="feature-grid">
+                    <div class="feature-card"><h3>Source traceability</h3><p>Every field keeps source database, table, row, original value, normalized value, and timestamp.</p></div>
+                    <div class="feature-card"><h3>Large-file processing</h3><p>Batched writes, background jobs, visible progress, and resumable runs that survive a page refresh.</p></div>
+                    <div class="feature-card"><h3>Match hierarchy</h3><p>Email → phone → username → member ID, plus fuzzy matching and confidence scoring — extensible, not hardcoded.</p></div>
+                    <div class="feature-card"><h3>Relationship discovery</h3><p>Foreign-key and shared-identifier detection across tables, with a relationship map per source.</p></div>
+                    <div class="feature-card"><h3>Processing statistics</h3><p>Databases, tables, records, matched, new vs enriched entities, duplicates, failures, and timings.</p></div>
+                    <div class="feature-card"><h3>Caching &amp; search</h3><p>Indexed lookups with Redis-compatible caching, suggestions, filters, history, and graph visualization.</p></div>
+                </div>
+                <div class="bonus-strip" aria-label="Bonus features">
+                    <span>graph visualization</span><span>fuzzy matching</span><span>confidence scoring</span><span>conflict resolution</span><span>entity timeline</span><span>schema docs</span><span>quality reports</span><span>duplicate detection</span><span>incremental parts</span>
+                </div>
+            </section>
+
+            <section class="section" style="padding-top:0">
+                <div class="cta-panel">
+                    <div>
+                        <p class="eyebrow" style="color:#e2b566">EVALUATOR START HERE</p>
+                        <h2>Search john@example.com — or jane@example.com — and watch four sources become one profile.</h2>
+                        <p>1 · Open the workspace → 2 · Sources → upload the 4 demo CSVs → 3 · Field review → Confirm &amp; process → 4 · Find an entity → try <code>john@example.com</code>.</p>
+                    </div>
+                    <div class="cta-actions">
+                        <a class="button button-light" href="/login.html">Open workspace <span aria-hidden="true">→</span></a>
+                        <a class="button button-ghostlight" href="/login.html">Go straight to search</a>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer class="landing-footer">
+        <div class="landing-wrap landing-footer-inner">
+            <span>concordia · multi-database entity resolution · progressive enrichment demo</span>
+            <span><a href="/login.html">Workspace</a> · <a href="/architecture.html">Architecture</a> · <a href="#how">Workflow</a></span>
+        </div>
+    </footer>
+</body>
+</html>

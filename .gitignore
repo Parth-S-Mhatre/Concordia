@@ -1,0 +1,48 @@
+# Environment
+.env
+.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Firebase
+firebase-credentials.json
+
+# Service account keys — NEVER commit (full access to the GCP project)
+unity-disk-*.json
+*-firebase-adminsdk-*.json
+*service-account*.json
+service-account*.json
+
+# Local run artifacts
+nohup.out
+
+# Test coverage
+htmlcov/
+.coverage
+.pytest_cache/
+
+# Build
+dist/
+build/
+*.egg-info/

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#173b35">
+    <meta name="description" content="Sign in or create an account to access the Concordia entity-resolution workspace.">
+    <title>Sign in | Concordia</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css?v=3">
+    <link rel="stylesheet" href="/css/landing.css?v=2">
+    <style>
+        .login-page { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+        .login-side { display: flex; flex-direction: column; justify-content: center; padding: 56px; color: #eef3ee; background: var(--forest); }
+        .login-side h1 { margin: 14px 0 0; font: 500 clamp(30px, 3.4vw, 44px)/1.1 var(--serif); }
+        .login-side p { margin: 12px 0 0; max-width: 420px; color: #b9cdc2; font-size: 14px; }
+        .login-side ol { margin: 26px 0 0; padding: 0; list-style: none; }
+        .login-side li { display: flex; gap: 12px; padding: 11px 0; border-top: 1px solid var(--line-dark); font-size: 13px; }
+        .login-side li span { color: #e2b566; font: 11px var(--mono); }
+        .login-main { display: grid; place-items: center; padding: 32px 20px; }
+        .login-card { width: min(430px, 100%); border: 1px solid var(--line); background: var(--surface); padding: 30px; }
+        .login-card h2 { margin: 0; font: 500 28px var(--serif); }
+        .login-card > p { margin: 8px 0 4px; color: var(--muted); font-size: 13px; }
+        .login-tabs { display: grid; grid-template-columns: 1fr 1fr; margin: 18px 0 6px; border: 1px solid var(--line); }
+        .login-tabs button { min-height: 42px; border: 0; background: transparent; cursor: pointer; font-weight: 600; font-size: 13px; color: var(--muted); }
+        .login-tabs button.active { color: #fff; background: var(--forest); }
+        .login-card label { display: block; margin-top: 12px; font-size: 12px; font-weight: 600; }
+        .login-card input { width: 100%; margin-top: 4px; }
+        .login-card .dialog-actions { flex-direction: column; align-items: stretch; }
+        .login-card .dialog-actions .button { width: 100%; }
+        .login-divider { display: flex; align-items: center; gap: 10px; margin: 4px 0; color: var(--muted); font: 10px var(--mono); }
+        .login-divider::before, .login-divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+        .login-foot { margin: 14px 0 0; text-align: center; color: var(--muted); font-size: 12px; }
+        @media (max-width: 900px) {
+            .login-page { grid-template-columns: 1fr; }
+            .login-side { padding: 36px 24px; }
+        }
+    </style>
+    <script type="module" src="/js/login.js?v=2"></script>
+</head>
+<body class="landing">
+    <main class="login-page">
+        <aside class="login-side" aria-label="Why sign in">
+            <a class="landing-brand" href="/index.html" style="color:#fff;text-decoration:none">
+                <span class="brand-mark" aria-hidden="true" style="border-color:#87aa98"><i></i><i></i><i></i></span>
+                <span><strong>concordia</strong><small style="color:#9ab2a7">ONE ENTITY · EVERY SOURCE</small></span>
+            </a>
+            <h1>One account, every connected record.</h1>
+            <p>Sign in to manage sources, review field mappings, and search the unified repository with full source traceability.</p>
+            <ol>
+                <li><span>01</span> Upload CSV or SQL sources with different schemas</li>
+                <li><span>02</span> Review AI-suggested field mappings before processing</li>
+                <li><span>03</span> Search once — enrichment connects every source</li>
+            </ol>
+        </aside>
+        <div class="login-main">
+            <form id="auth-form" class="login-card" aria-labelledby="auth-title">
+                <p class="eyebrow">CONCORDIA WORKSPACE</p>
+                <h2 id="auth-title">Sign in</h2>
+                <p id="auth-subtitle">Welcome back. Your sources and entities are waiting.</p>
+                <div class="login-tabs" role="tablist" aria-label="Sign in or create account">
+                    <button type="button" id="tab-signin" class="active" role="tab" aria-selected="true">Sign in</button>
+                    <button type="button" id="tab-signup" role="tab" aria-selected="false">Create account</button>
+                </div>
+                <label for="auth-email">Email</label>
+                <input id="auth-email" type="email" autocomplete="username" required maxlength="120" placeholder="you@example.com">
+                <label for="auth-password">Password</label>
+                <input id="auth-password" type="password" autocomplete="current-password" required minlength="6" placeholder="••••••••">
+                <div id="confirm-wrap" hidden>
+                    <label for="auth-confirm">Confirm password</label>
+                    <input id="auth-confirm" type="password" autocomplete="new-password" minlength="6" placeholder="••••••••">
+                </div>
+                <p class="form-error" id="auth-error" role="alert" hidden></p>
+                <div class="dialog-actions">
+                    <button class="button button-dark" id="auth-submit" type="submit">Sign in <span aria-hidden="true">→</span></button>
+                </div>
+                <div class="login-divider">OR</div>
+                <div class="dialog-actions">
+                    <button class="button button-quiet" id="fill-demo-admin" type="button">Fill demo admin credentials</button>
+                    <button class="text-button" id="continue-guest" type="button" hidden>Continue without sign-in <span aria-hidden="true">→</span></button>
+                </div>
+                <p class="login-foot"><a href="/index.html">← Back to landing</a></p>
+            </form>
+        </div>
+    </main>
+</body>
+</html>

@@ -1,0 +1,4 @@
+# Proxy API calls to the Render backend in production.
+# Replace YOUR-RENDER-APP with your Render service name.
+/api/*  https://YOUR-RENDER-APP.onrender.com/api/:splat  200
+/health  https://YOUR-RENDER-APP.onrender.com/health  200
