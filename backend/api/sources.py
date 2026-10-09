@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, BackgroundTasks, Request
 from typing import List
 import hashlib
 import uuid
@@ -13,16 +13,28 @@ from backend.models.schemas import (
     FieldMapping, MappingRequest, MappingResponse, SourceStatus, CANONICAL_FIELDS,
 )
 from backend.services.mapping import suggest_field_mappings
-from backend.services.auth import require_admin
+from backend.services.auth import require_admin, resolve_user, get_owner_uid, is_visible
 from backend.services.quality import file_hash, fingerprint_dataset, profile_records
 from backend.services.sql_ingest import parse_sql_dump, flatten_tables_for_ingest
 
 router = APIRouter()
 
 
+def _user(request: Request) -> dict:
+    return getattr(request.state, "user", {"uid": None, "email": None, "admin": False, "anonymous": True})
+
+
+def _check_visible(doc_data: dict | None, user: dict, not_found_msg: str = "Source not found"):
+    if not doc_data or not is_visible(doc_data, user):
+        raise HTTPException(status_code=404, detail=not_found_msg)
+    return doc_data
+
+
 @router.post("", response_model=Source, status_code=201)
-async def create_source(source: SourceCreate):
-    """Create a new source entry."""
+async def create_source(source: SourceCreate, request: Request):
+    """Create a new source entry (owner-scoped so new users start clean)."""
+    user = _user(request)
+    owner_uid = get_owner_uid(user)
     source_id = str(uuid.uuid4())[:8]
     now = datetime.utcnow()
     
@@ -45,34 +57,48 @@ async def create_source(source: SourceCreate):
         "created_at": now,
         "updated_at": now,
     }
+    if owner_uid:
+        source_data["owner_uid"] = owner_uid
+        if user.get("email"):
+            source_data["owner_email"] = user.get("email")
     
     db.collection(COLLECTION_SOURCES).document(source_id).set(source_data)
     return Source(**source_data)
 
 
 @router.get("", response_model=List[Source])
-async def list_sources():
-    """List all sources."""
+async def list_sources(request: Request):
+    """List sources visible to the caller (new users see an empty list)."""
+    user = _user(request)
     docs = db.collection(COLLECTION_SOURCES).order_by("created_at", direction="DESCENDING").stream()
-    return [Source(**doc.to_dict()) for doc in docs]
+    out = []
+    for doc in docs:
+        data = doc.to_dict()
+        if is_visible(data, user):
+            out.append(Source(**data))
+    return out
 
 
 @router.get("/{source_id}", response_model=Source)
-async def get_source(source_id: str):
+async def get_source(source_id: str, request: Request):
     """Get a specific source."""
+    user = _user(request)
     doc = db.collection(COLLECTION_SOURCES).document(source_id).get()
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Source not found")
+    _check_visible(doc.to_dict(), user)
     return Source(**doc.to_dict())
 
 
 @router.patch("/{source_id}", response_model=Source)
-async def update_source(source_id: str, update: SourceUpdate):
+async def update_source(source_id: str, update: SourceUpdate, request: Request):
     """Update source metadata."""
+    user = _user(request)
     doc_ref = db.collection(COLLECTION_SOURCES).document(source_id)
     doc = doc_ref.get()
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Source not found")
+    _check_visible(doc.to_dict(), user)
     
     update_data = update.model_dump(exclude_unset=True)
     update_data["updated_at"] = datetime.utcnow()
@@ -83,11 +109,16 @@ async def update_source(source_id: str, update: SourceUpdate):
 
 
 @router.delete("/{source_id}")
-async def delete_source(source_id: str, user: dict = Depends(require_admin)):
+async def delete_source(source_id: str, request: Request, user: dict = Depends(require_admin)):
     """Delete a source and its records (admin only when auth is enforced)."""
+    caller = _user(request)
     doc_ref = db.collection(COLLECTION_SOURCES).document(source_id)
     doc = doc_ref.get()
     if not doc.exists:
+        raise HTTPException(status_code=404, detail="Source not found")
+    # Owners may delete their own sources; admins may delete visible ones.
+    data = doc.to_dict()
+    if not (is_visible(data, caller) or (caller.get("uid") and data.get("owner_uid") == caller.get("uid"))):
         raise HTTPException(status_code=404, detail="Source not found")
     
     # Delete associated records
@@ -103,13 +134,16 @@ async def delete_source(source_id: str, user: dict = Depends(require_admin)):
 
 
 @router.post("/{source_id}/upload")
-async def upload_csv(source_id: str, file: UploadFile = File(...)):
+async def upload_csv(source_id: str, request: Request, file: UploadFile = File(...)):
     """Upload a CSV or SQL dump (§4). SQL tables are flattened on shared keys (§15)."""
+    user = _user(request)
+    owner_uid = get_owner_uid(user)
     doc_ref = db.collection(COLLECTION_SOURCES).document(source_id)
     doc = doc_ref.get()
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Source not found")
     source_data = doc.to_dict()
+    _check_visible(source_data, user)
     safe_filename = (file.filename or "").replace("\\", "/").rsplit("/", 1)[-1]
     lower = safe_filename.lower()
     if not (lower.endswith(".csv") or lower.endswith(".sql")):
@@ -122,6 +156,10 @@ async def upload_csv(source_id: str, file: UploadFile = File(...)):
     duplicate_of = None
     for other in db.collection(COLLECTION_SOURCES).stream():
         data = other.to_dict()
+        # Duplicate detection is owner-scoped: a new user's file must not
+        # be flagged as a duplicate of the admin demo data.
+        if not is_visible(data, user):
+            continue
         if other.id != source_id and data.get("file_hash") == digest:
             duplicate_of = data.get("source_id", other.id)
             break
@@ -179,6 +217,10 @@ async def upload_csv(source_id: str, file: UploadFile = File(...)):
             "normalized_data": {},
             "created_at": datetime.utcnow(),
         }
+        if owner_uid:
+            record_data["owner_uid"] = owner_uid
+            if user.get("email"):
+                record_data["owner_email"] = user.get("email")
         write_batch.set(db.collection(COLLECTION_RECORDS).document(record_id), record_data)
         total_records += 1
         pending += 1
@@ -211,7 +253,9 @@ async def upload_csv(source_id: str, file: UploadFile = File(...)):
 
 
 @router.post("/{source_id}/schema", response_model=SourceSchema)
-async def inspect_schema(source_id: str, file: UploadFile = File(...)):
+async def inspect_schema(source_id: str, request: Request, file: UploadFile = File(...)):
+    user = _user(request)
+    _check_visible(db.collection(COLLECTION_SOURCES).document(source_id).get().to_dict() if db.collection(COLLECTION_SOURCES).document(source_id).get().exists else None, user)
     lower = (file.filename or "").lower()
     if not (lower.endswith(".csv") or lower.endswith(".sql")):
         raise HTTPException(status_code=400, detail="Only CSV and SQL dump files are allowed")
@@ -274,12 +318,14 @@ async def inspect_schema(source_id: str, file: UploadFile = File(...)):
 
 
 @router.get("/{source_id}/mapping", response_model=MappingResponse)
-async def get_mapping_suggestions(source_id: str):
+async def get_mapping_suggestions(source_id: str, request: Request):
+    user = _user(request)
     doc_ref = db.collection(COLLECTION_SOURCES).document(source_id)
     doc = doc_ref.get()
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Source not found")
     source_data = doc.to_dict()
+    _check_visible(source_data, user)
     if "schema" not in source_data:
         raise HTTPException(status_code=400, detail="Schema not inspected yet")
     columns = [col["name"] for col in source_data["schema"]["columns"]]
@@ -289,37 +335,47 @@ async def get_mapping_suggestions(source_id: str):
 
 
 @router.post("/{source_id}/mapping", response_model=MappingResponse)
-async def confirm_mapping(source_id: str, request: MappingRequest):
+async def confirm_mapping(source_id: str, mapping_req: MappingRequest, request: Request):
+    user = _user(request)
     doc_ref = db.collection(COLLECTION_SOURCES).document(source_id)
-    if not doc_ref.get().exists:
+    snap = doc_ref.get()
+    if not snap.exists:
         raise HTTPException(status_code=404, detail="Source not found")
-    mappings = [m.model_dump() for m in request.mappings]
+    _check_visible(snap.to_dict(), user)
+    mappings = [m.model_dump() for m in mapping_req.mappings]
     doc_ref.update({"mappings": mappings, "status": SourceStatus.MAPPING, "updated_at": datetime.utcnow()})
-    return MappingResponse(source_id=source_id, mappings=request.mappings, suggested_mappings=[])
+    return MappingResponse(source_id=source_id, mappings=mapping_req.mappings, suggested_mappings=[])
 
 
 @router.get("/{source_id}/status")
-async def get_source_status(source_id: str):
+async def get_source_status(source_id: str, request: Request):
+    user = _user(request)
     doc_ref = db.collection(COLLECTION_SOURCES).document(source_id)
     doc = doc_ref.get()
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Source not found")
     source_data = doc.to_dict()
+    _check_visible(source_data, user)
     jobs = db.collection(COLLECTION_PROCESSING_JOBS).where("source_id", "==", source_id).order_by("created_at", direction="DESCENDING").limit(1).stream()
     job_data = None
     for job in jobs:
-        job_data = job.to_dict()
+        jd = job.to_dict()
+        if not is_visible(jd, user) and jd.get("owner_uid"):
+            continue
+        job_data = jd
         break
     return {"source_id": source_id, "status": source_data.get("status"), "progress": job_data.get("progress", 0) if job_data else 0, "total": job_data.get("total", 0) if job_data else 0, "processed": job_data.get("processed", 0) if job_data else 0, "errors": job_data.get("errors", []) if job_data else []}
 
 
 @router.get("/{source_id}/relationships")
-async def get_relationships(source_id: str):
+async def get_relationships(source_id: str, request: Request):
     """Relationship map: FK + inferred shared columns (§16 bonus)."""
+    user = _user(request)
     doc = db.collection(COLLECTION_SOURCES).document(source_id).get()
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Source not found")
     data = doc.to_dict()
+    _check_visible(data, user)
     return {
         "source_id": source_id,
         "tables": data.get("tables", []),
@@ -328,12 +384,14 @@ async def get_relationships(source_id: str):
 
 
 @router.get("/{source_id}/profile")
-async def get_profile(source_id: str):
+async def get_profile(source_id: str, request: Request):
     """Schema documentation + data-quality report (§26 bonus)."""
+    user = _user(request)
     doc = db.collection(COLLECTION_SOURCES).document(source_id).get()
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Source not found")
     data = doc.to_dict()
+    _check_visible(data, user)
     return {
         "source_id": source_id,
         "filename": data.get("filename"),
@@ -347,11 +405,12 @@ async def get_profile(source_id: str):
 
 
 @router.get("/groups/{group_id}")
-async def get_source_group(group_id: str):
+async def get_source_group(group_id: str, request: Request):
     """Multi-part dataset view: Database 1 Part 1/2/3 (§4)."""
+    user = _user(request)
     docs = db.collection(COLLECTION_SOURCES).where("parent_group_id", "==", group_id).stream()
     parts = sorted(
-        [Source(**d.to_dict()) for d in docs],
+        [Source(**d.to_dict()) for d in docs if is_visible(d.to_dict(), user)],
         key=lambda s: (s.part_number or 0),
     )
     return {

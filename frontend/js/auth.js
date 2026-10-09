@@ -1,5 +1,5 @@
-// Firebase Authentication client (REST, no SDK needed).
-// Sign-in uses IdentityToolkit; refresh uses SecureToken; the backend
+// Firebase Authentication client (REST, no SDK needed for email/password).
+// Google sign-in uses the Firebase JS SDK (loaded on demand); the backend
 // verifies ID tokens with the Admin SDK and serves the public config.
 import api from './api.js?v=5';
 
@@ -133,4 +133,71 @@ export async function ensureToken() {
 
 export function signOut() {
     writeSession(null);
+    try {
+        if (window.firebase?.auth) window.firebase.auth().signOut().catch(() => {});
+    } catch { /* noop */ }
+}
+
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        if (document.querySelector(`script[src="${src}"]`)) return resolve();
+        const s = document.createElement('script');
+        s.src = src;
+        s.async = true;
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('Could not load Google sign-in. Check your connection and retry.'));
+        document.head.appendChild(s);
+    });
+}
+
+let firebaseReady = null;
+
+async function ensureFirebase() {
+    if (window.firebase?.apps?.length) return window.firebase;
+    if (!firebaseReady) {
+        firebaseReady = (async () => {
+            await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
+            await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js');
+            const config = await getPublicConfig();
+            if (!config.apiKey || !config.projectId) {
+                throw new Error('Auth is not configured (FIREBASE_API_KEY missing on server).');
+            }
+            const appConfig = {
+                apiKey: config.apiKey,
+                authDomain: config.authDomain || `${config.projectId}.firebaseapp.com`,
+                projectId: config.projectId,
+            };
+            window.firebase.initializeApp(appConfig);
+            return window.firebase;
+        })();
+    }
+    return firebaseReady;
+}
+
+/** Google sign-in via Firebase popup. Creates a fresh per-user workspace on first login. */
+export async function signInWithGoogle() {
+    const firebase = await ensureFirebase();
+    const auth = firebase.auth();
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    let result;
+    try {
+        result = await auth.signInWithPopup(provider);
+    } catch (err) {
+        const code = err?.code || '';
+        if (code === 'auth/popup-blocked') throw new Error('Pop-up was blocked. Allow pop-ups for this site and try again.');
+        if (code === 'auth/cancelled-popup-request' || code === 'auth/popup-closed-by-user') throw new Error('Google sign-in was cancelled.');
+        if (code === 'auth/operation-not-allowed') throw new Error('Google sign-in is not enabled in the Firebase console (Authentication → Sign-in method → Google).');
+        if (code === 'auth/unauthorized-domain') throw new Error('This domain is not authorized in Firebase console → Authentication → Settings → Authorized domains.');
+        throw new Error(err?.message || 'Google sign-in failed. Try again.');
+    }
+    const idToken = await result.user.getIdToken();
+    writeSession({
+        idToken,
+        refreshToken: result.user.refreshToken || null,
+        expiresAt: Date.now() + 55 * 60 * 1000,
+        email: result.user.email || null,
+        provider: 'google',
+    });
+    return result.user;
 }

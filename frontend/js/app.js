@@ -1,5 +1,5 @@
 import api from './api.js?v=5';
-import * as auth from './auth.js?v=3';
+import * as auth from './auth.js?v=4';
 
 const canonicalFields = ['', 'email', 'phone', 'username', 'member_id', 'name', 'address', 'company'];
 const screenNames = ['dashboard', 'sources', 'mapping', 'search'];
@@ -137,7 +137,26 @@ function handleAuthAction() {
         state.sources = [];
         window.location.href = '/index.html';
     } else {
-        showGate(!(state.authConfig && state.authConfig.requireAuth));
+        window.location.href = '/login.html';
+    }
+}
+
+async function handleGoogleLogin() {
+    const error = document.getElementById('login-error');
+    error.hidden = true;
+    try {
+        await auth.signInWithGoogle();
+        const me = await api.getMe();
+        renderUser(me);
+        hideGate();
+        // Fresh Google accounts land on an empty dashboard by design.
+        showToast(me.admin ? 'Signed in as demo admin.' : 'Signed in with Google. Your workspace is ready.');
+        await refreshConnection();
+        await loadDashboard();
+        await loadSources();
+    } catch (loginError) {
+        error.textContent = loginError.message;
+        error.hidden = false;
     }
 }
 
@@ -172,6 +191,7 @@ function bindEvents() {
     document.getElementById('try-example').addEventListener('click', fillDemoQuery);
     document.getElementById('try-example-2').addEventListener('click', fillDemoQuery);
     document.getElementById('login-form').addEventListener('submit', handleLogin);
+    document.getElementById('google-signin-gate')?.addEventListener('click', handleGoogleLogin);
     document.getElementById('fill-demo-admin').addEventListener('click', () => {
         document.getElementById('login-email').value = (state.authConfig && state.authConfig.demoAdminEmail) || 'admin@concordia.demo';
         document.getElementById('login-password').value = auth.DEMO_ADMIN_DEFAULT_PASSWORD;
@@ -292,7 +312,10 @@ async function loadSources() {
 function renderRecentSources(items) {
     const host = document.getElementById('recent-sources');
     if (!items.length) {
-        host.innerHTML = '<p class="empty-row">No sources yet. Add a dataset to get started.</p>';
+        const fresh = state.user && !state.user.anonymous
+            ? 'Your workspace is clean — no admin demo data here. Add your first dataset to populate these analytics.'
+            : 'No sources yet. Add a dataset to get started.';
+        host.innerHTML = `<p class="empty-row">${escapeHtml(fresh)}</p>`;
         return;
     }
     host.innerHTML = sourceTable(items, false);

@@ -88,33 +88,53 @@ async def update_indexes(record: Record):
             add_to_index(field_type, norm_value.normalized_value, record.record_id)
 
 
-async def find_matching_records(identifier: str, identifier_type: str = None) -> List[Record]:
+async def find_matching_records(identifier: str, identifier_type: str = None, user: dict | None = None, owner_uid: str | None = None) -> List[Record]:
     """
     Find records matching an identifier.
     If identifier_type is not specified, search all indexes.
+
+    Per-user isolation: when a `user` (or `owner_uid`) scope is supplied,
+    only records visible to that scope are returned, so a fresh account
+    never matches the admin demo data. Without a scope, legacy behaviour
+    (all records) is kept for open-demo callers that filter themselves.
     """
     results = []
     seen_record_ids = set()
-    
+
+    def _allowed(data: dict) -> bool:
+        if user is None and owner_uid is None:
+            return True
+        # Explicit owner scoping (used by enrichment/processing).
+        if user is None and owner_uid is not None:
+            return (data.get("owner_uid") or None) == owner_uid
+        # Full visibility rules (admin sees legacy + own, users see own only).
+        from backend.services.auth import is_visible as _is_visible
+        return _is_visible(data, user)
+
+    async def _collect(record_ids):
+        for rid in record_ids:
+            if rid in seen_record_ids:
+                continue
+            doc = db.collection(COLLECTION_RECORDS).document(rid).get()
+            if doc.exists:
+                data = doc.to_dict()
+                if _allowed(data):
+                    try:
+                        results.append(Record(**data))
+                    except Exception:
+                        # Tolerate legacy docs missing new optional fields.
+                        pass
+                    seen_record_ids.add(rid)
+
     if identifier_type:
         # Search specific index
         record_ids = find_in_index(identifier_type, identifier)
-        for rid in record_ids:
-            if rid not in seen_record_ids:
-                doc = db.collection(COLLECTION_RECORDS).document(rid).get()
-                if doc.exists:
-                    results.append(Record(**doc.to_dict()))
-                    seen_record_ids.add(rid)
+        await _collect(record_ids)
     else:
         # Search all indexes
         for idx_name in ["email", "phone", "username", "member_id"]:
             record_ids = find_in_index(idx_name, identifier)
-            for rid in record_ids:
-                if rid not in seen_record_ids:
-                    doc = db.collection(COLLECTION_RECORDS).document(rid).get()
-                    if doc.exists:
-                        results.append(Record(**doc.to_dict()))
-                        seen_record_ids.add(rid)
+            await _collect(record_ids)
     
     return results
 

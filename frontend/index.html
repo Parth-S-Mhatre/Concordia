@@ -2,15 +2,33 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#173b35">
-    <meta name="description" content="Concordia — a multi-database entity resolution platform with progressive entity enrichment. Connect CSV and SQL sources into one searchable master repository.">
-    <title>Concordia | Multi-Database Entity Resolution</title>
+    <meta name="description" content="Concordia — a multi-database entity resolution platform with progressive entity enrichment. Connect CSV and SQL sources into one searchable master repository. Private per-user workspaces: new accounts start with empty analytics.">
+    <meta name="keywords" content="entity resolution, record linkage, data matching, deduplication, data enrichment, master data management, Firebase, Firestore, FastAPI, CSV matching, SQL data integration, progressive enrichment, Parth Mhatre">
+    <meta name="author" content="Parth S Mhatre">
+    <meta name="robots" content="index, follow">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Concordia | Multi-Database Entity Resolution">
+    <meta property="og:description" content="Disconnected datasets, one connected repository. Upload CSV/SQL, review field mappings, and search once — enrichment connects every source.">
+    <meta property="og:site_name" content="Concordia">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Concordia | Multi-Database Entity Resolution">
+    <meta name="twitter:description" content="Progressive entity enrichment across CSV and SQL sources with full source traceability.">
+    <link rel="canonical" href="/index.html">
+    <title>Concordia | Multi-Database Entity Resolution & Progressive Enrichment</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/styles.css?v=4">
-    <link rel="stylesheet" href="/css/landing.css?v=2">
+    <link rel="stylesheet" href="/css/landing.css?v=3">
+    <link rel="stylesheet" href="/css/ios.css?v=1">
+    <link rel="stylesheet" href="/css/animations.css?v=2">
+    <script src="/js/animations.js?v=2" defer></script>
 </head>
 <body class="landing">
     <nav class="landing-nav" aria-label="Landing navigation">
@@ -32,7 +50,7 @@
     <main>
         <div class="landing-wrap">
             <section class="hero">
-                <div>
+                <div class="anim-hero">
                     <p class="eyebrow">MULTI-DATABASE ENTITY RESOLUTION</p>
                     <h1>Disconnected datasets, <em>one connected repository.</em></h1>
                     <p class="hero-intro">Concordia ingests CSV and SQL sources with different schemas, cleans and maps their fields, and progressively links records that describe the same real-world person — keeping the source of every fact.</p>
@@ -83,7 +101,7 @@
         </div>
 
         <div class="landing-wrap">
-            <section class="section" id="how">
+            <section class="section" id="how" data-reveal>
                 <div class="section-head">
                     <p class="eyebrow">DATABASE IMPORT WORKFLOW</p>
                     <h2>From raw upload to unified entity</h2>
@@ -99,7 +117,7 @@
                 </div>
             </section>
 
-            <section class="section" id="enrichment" style="padding-top:0">
+            <section class="section" id="enrichment" style="padding-top:0" data-reveal>
                 <div class="section-head">
                     <p class="eyebrow">CORE WINNING FEATURE</p>
                     <h2>Progressive enrichment, step by step</h2>
@@ -113,7 +131,7 @@
                 </div>
             </section>
 
-            <section class="section" id="demo-data" style="padding-top:0">
+            <section class="section" id="demo-data" style="padding-top:0" data-reveal>
                 <div class="section-head">
                     <p class="eyebrow">MANDATORY DATASET DEMONSTRATION</p>
                     <h2>Different columns, same people</h2>
@@ -130,7 +148,7 @@
                 </table>
             </section>
 
-            <section class="section" id="features" style="padding-top:0">
+            <section class="section" id="features" style="padding-top:0" data-reveal>
                 <div class="section-head">
                     <p class="eyebrow">PLATFORM CAPABILITIES</p>
                     <h2>Everything the assignment asks for</h2>
@@ -149,7 +167,7 @@
                 </div>
             </section>
 
-            <section class="section" style="padding-top:0">
+            <section class="section" style="padding-top:0" data-reveal>
                 <div class="cta-panel">
                     <div>
                         <p class="eyebrow" style="color:#e2b566">EVALUATOR START HERE</p>
@@ -169,6 +187,10 @@
         <div class="landing-wrap landing-footer-inner">
             <span>concordia · multi-database entity resolution · progressive enrichment demo</span>
             <span><a href="/login.html">Workspace</a> · <a href="/architecture.html">Architecture</a> · <a href="#how">Workflow</a></span>
+        </div>
+        <div class="landing-wrap landing-footer-inner landing-contact" style="margin-top:10px">
+            <span>Built by <strong>Parth S Mhatre</strong> · <a href="mailto:parth.mhatre4141@gmail.com">parth.mhatre4141@gmail.com</a> · <a href="https://github.com/Parth-S-Mhatre" target="_blank" rel="noopener">GitHub: Parth-S-Mhatre</a></span>
+            <span>New users get a private, empty workspace — your uploads stay yours.</span>
         </div>
     </footer>
 </body>

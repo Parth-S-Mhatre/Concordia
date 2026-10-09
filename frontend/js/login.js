@@ -1,7 +1,7 @@
 // Dedicated login / signup page. On success → workspace (app.html).
 // Already signed in → skip straight through.
 import api from './api.js?v=5';
-import * as auth from './auth.js?v=3';
+import * as auth from './auth.js?v=4';
 
 const state = { mode: 'signin', config: null };
 
@@ -11,6 +11,7 @@ async function initialize() {
     api.setAuthProvider(() => auth.ensureToken());
     bindTabs();
     document.getElementById('auth-form').addEventListener('submit', handleSubmit);
+    document.getElementById('google-signin')?.addEventListener('click', handleGoogle);
     document.getElementById('fill-demo-admin').addEventListener('click', () => {
         setMode('signin');
         document.getElementById('auth-email').value = (state.config && state.config.demoAdminEmail) || 'admin@concordia.demo';
@@ -105,4 +106,17 @@ function fail(message) {
     const error = document.getElementById('auth-error');
     error.textContent = message;
     error.hidden = false;
+}
+
+async function handleGoogle() {
+    const btn = document.getElementById('google-signin');
+    btn.disabled = true;
+    try {
+        await auth.signInWithGoogle();
+        window.location.href = '/app.html';
+    } catch (err) {
+        fail(err.message);
+    } finally {
+        btn.disabled = false;
+    }
 }

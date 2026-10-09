@@ -1,16 +1,21 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from typing import List, Optional
 
 from backend.config import db, COLLECTION_ENTITIES, COLLECTION_RECORDS
 from backend.models.schemas import Entity, EntityField
-
+from backend.services.auth import is_visible
 
 router = APIRouter()
 
 
+def _user(request: Request) -> dict:
+    return getattr(request.state, "user", {"uid": None, "email": None, "admin": False, "anonymous": True})
+
+
 @router.get("/stats/summary")
-async def get_entity_stats():
-    """Get entity statistics for dashboard."""
+async def get_entity_stats(request: Request):
+    """Get entity statistics for dashboard (owner-scoped; new users get zeros)."""
+    user = _user(request)
     entities = db.collection(COLLECTION_ENTITIES).stream()
     total = 0
     with_email = 0
@@ -20,8 +25,10 @@ async def get_entity_stats():
     multi_source = 0
 
     for e in entities:
-        total += 1
         data = e.to_dict()
+        if not is_visible(data, user):
+            continue
+        total += 1
         if data.get("email"):
             with_email += 1
         if data.get("phone"):
@@ -46,14 +53,24 @@ async def get_entity_stats():
 
 @router.get("", response_model=List[Entity])
 async def list_entities(
+    request: Request,
     limit: int = 50,
     offset: int = 0,
     q: Optional[str] = None,
     multi_source_only: bool = False,
 ):
     """List master entities with optional search + multi-source filter (§26 advanced search)."""
+    user = _user(request)
     docs = db.collection(COLLECTION_ENTITIES).order_by("updated_at", direction="DESCENDING").limit(500).stream()
-    entities = [Entity(**doc.to_dict()) for doc in docs]
+    entities = []
+    for doc in docs:
+        data = doc.to_dict()
+        if not is_visible(data, user):
+            continue
+        try:
+            entities.append(Entity(**data))
+        except Exception:
+            continue
     if multi_source_only:
         entities = [e for e in entities if len(e.source_ids or []) > 1]
     if q:
@@ -71,19 +88,21 @@ async def list_entities(
 
 
 @router.get("/{entity_id}", response_model=Entity)
-async def get_entity(entity_id: str):
+async def get_entity(entity_id: str, request: Request):
     """Get a specific master entity with full traceability."""
+    user = _user(request)
     doc = db.collection(COLLECTION_ENTITIES).document(entity_id).get()
-    if not doc.exists:
+    if not doc.exists or not is_visible(doc.to_dict(), user):
         raise HTTPException(status_code=404, detail="Entity not found")
     return Entity(**doc.to_dict())
 
 
 @router.get("/{entity_id}/traceability")
-async def get_entity_traceability(entity_id: str):
+async def get_entity_traceability(entity_id: str, request: Request):
     """Get detailed source traceability for an entity."""
+    user = _user(request)
     doc = db.collection(COLLECTION_ENTITIES).document(entity_id).get()
-    if not doc.exists:
+    if not doc.exists or not is_visible(doc.to_dict(), user):
         raise HTTPException(status_code=404, detail="Entity not found")
 
     entity = doc.to_dict()
@@ -119,10 +138,11 @@ async def get_entity_traceability(entity_id: str):
 
 
 @router.get("/{entity_id}/enrichment-path")
-async def get_enrichment_path(entity_id: str):
+async def get_enrichment_path(entity_id: str, request: Request):
     """Get the enrichment path showing how the entity was built."""
+    user = _user(request)
     doc = db.collection(COLLECTION_ENTITIES).document(entity_id).get()
-    if not doc.exists:
+    if not doc.exists or not is_visible(doc.to_dict(), user):
         raise HTTPException(status_code=404, detail="Entity not found")
 
     entity = doc.to_dict()
@@ -135,10 +155,11 @@ async def get_enrichment_path(entity_id: str):
 
 
 @router.get("/{entity_id}/history")
-async def get_entity_history(entity_id: str):
+async def get_entity_history(entity_id: str, request: Request):
     """Entity timeline: creation + enrichment events (§26 bonus)."""
+    user = _user(request)
     doc = db.collection(COLLECTION_ENTITIES).document(entity_id).get()
-    if not doc.exists:
+    if not doc.exists or not is_visible(doc.to_dict(), user):
         raise HTTPException(status_code=404, detail="Entity not found")
     entity = doc.to_dict()
     history = entity.get("history", [])
@@ -162,10 +183,11 @@ async def get_entity_history(entity_id: str):
 
 
 @router.get("/{entity_id}/graph")
-async def get_entity_graph(entity_id: str):
+async def get_entity_graph(entity_id: str, request: Request):
     """Graph data for relationship visualization (§26 bonus)."""
+    user = _user(request)
     doc = db.collection(COLLECTION_ENTITIES).document(entity_id).get()
-    if not doc.exists:
+    if not doc.exists or not is_visible(doc.to_dict(), user):
         raise HTTPException(status_code=404, detail="Entity not found")
     entity = doc.to_dict()
     nodes = [{"id": entity_id, "label": entity_id, "kind": "entity"}]

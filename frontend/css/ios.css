@@ -1,0 +1,225 @@
+/* iOS necessities only — radius scale, safe-area, 16px inputs, touch targets.
+   Visual styling lives in styles.css / landing.css / animations.css. */
+:root {
+  --ios-radius: 12px;
+  --ios-radius-lg: 12px;
+  --ios-shadow: 0 8px 24px rgba(23, 59, 53, 0.08);
+  --ios-blur: saturate(180%) blur(20px);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  user-select: none;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* Buttons: touch target + press feedback (visuals in main layers) */
+.button {
+  border-radius: 8px;
+  min-height: 44px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.button:active {
+  transform: scale(0.98);
+}
+.button-google {
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  width: 100%;
+}
+.button-google:hover {
+  background: #f7f8f5;
+}
+.button-google:disabled {
+  opacity: 0.6;
+}
+.google-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+}
+
+/* Cards / panels: radius only (shadow/border in main layers) */
+.panel,
+.login-card,
+.auth-card,
+.demo-card,
+.entity-result,
+.step-card,
+.feature-card,
+.cta-panel {
+  border-radius: var(--ios-radius-lg);
+  overflow: hidden;
+}
+
+.metric {
+  border-radius: 0;
+}
+.metric-row {
+  border-radius: var(--ios-radius-lg);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+/* Inputs: 16px prevents iOS auto-zoom; rounded like iOS forms */
+input, select, textarea {
+  border-radius: 10px;
+  font-size: 16px;
+}
+.search-form {
+  border-radius: 12px;
+}
+.search-form input {
+  font-size: 16px;
+}
+
+.login-tabs {
+  border-radius: 12px;
+  overflow: hidden;
+  padding: 3px;
+  background: #edf1ed;
+  border-color: transparent;
+}
+.login-tabs button {
+  border-radius: 9px;
+  min-height: 44px;
+}
+
+/* Sticky bars with notch safe-area (no blur stacking on landing) */
+.sidebar {
+  -webkit-backdrop-filter: var(--ios-blur);
+  backdrop-filter: var(--ios-blur);
+}
+.nav-link {
+  border-radius: 10px;
+  min-height: 44px;
+}
+
+/* Contact footer line */
+.login-contact, .landing-contact {
+  line-height: 1.7;
+}
+.landing-contact a, .login-contact a {
+  color: var(--forest-soft);
+  font-weight: 600;
+}
+
+/* Mobile: bottom-friendly, no horizontal overflow */
+img, svg, table {
+  max-width: 100%;
+}
+
+@media (max-width: 720px) {
+  .app-shell {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: rgba(23, 59, 53, 0.92);
+    -webkit-backdrop-filter: var(--ios-blur);
+    backdrop-filter: var(--ios-blur);
+    padding-bottom: 8px;
+  }
+  .main-nav {
+    padding-bottom: 6px;
+  }
+  .nav-link {
+    min-height: 44px;
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+  .topline {
+    flex-wrap: wrap;
+    gap: 8px;
+    row-gap: 6px;
+  }
+  .topline > span:last-child {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+  .user-chip {
+    max-width: 60vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .page-heading {
+    gap: 12px;
+  }
+  .page-heading .button {
+    width: 100%;
+  }
+  .search-form {
+    flex-wrap: wrap;
+    padding: 10px;
+  }
+  .search-form input {
+    flex: 1 1 100%;
+    min-height: 44px;
+  }
+  .search-form .button {
+    flex: 1;
+  }
+  .data-table {
+    font-size: 12px;
+  }
+  .entity-banner {
+    flex-direction: column;
+  }
+  .entity-id {
+    word-break: break-all;
+  }
+  .dialog-actions .button,
+  .mapping-actions .button {
+    min-height: 44px;
+  }
+  .upload-dialog, .auth-card {
+    border-radius: 20px;
+  }
+  .cta-actions .button {
+    width: 100%;
+  }
+  .landing-nav-inner {
+    gap: 12px;
+  }
+  .landing-nav .button {
+    margin-left: auto;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  .hero-cta .button {
+    flex: 1 1 100%;
+  }
+}
+
+@media (max-width: 390px) {
+  .main-content {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .metric strong {
+    font-size: 24px;
+  }
+}
+
+/* Respect reduced motion (iOS Reduce Motion) */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}

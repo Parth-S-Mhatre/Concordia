@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
 from typing import List
 import traceback
 import uuid
@@ -7,12 +7,19 @@ from datetime import datetime, timezone
 from backend.config import db, settings, COLLECTION_SOURCES, COLLECTION_RECORDS, COLLECTION_PROCESSING_JOBS, COLLECTION_ENTITIES, COLLECTION_INDEXES
 from backend.models.schemas import FieldMapping, ProcessingJob, ProcessingStatus, Record, SourceStatus
 from backend.services.cache import cache_invalidate
+from backend.services.auth import get_owner_uid, is_visible, owner_cache_key
 from backend.services.mapping import apply_field_mappings
 from backend.services.normalization import normalize_record
 from backend.services.matching import update_indexes, find_matching_records, persist_indexes
 
 
 router = APIRouter()
+
+
+def _user(request: Request | None) -> dict:
+    if request is None or not hasattr(request.state, "user"):
+        return {"uid": None, "email": None, "admin": False, "anonymous": True}
+    return request.state.user
 
 
 def _as_aware(value):
@@ -29,19 +36,22 @@ def _as_aware(value):
 
 
 @router.post("/{source_id}/start", response_model=ProcessingJob)
-async def start_processing(source_id: str, background_tasks: BackgroundTasks):
+async def start_processing(source_id: str, background_tasks: BackgroundTasks, request: Request):
     """Start the full processing pipeline for a source."""
+    user = _user(request)
     doc_ref = db.collection(COLLECTION_SOURCES).document(source_id)
     doc = doc_ref.get()
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Source not found")
     
     source_data = doc.to_dict()
+    if not is_visible(source_data, user):
+        raise HTTPException(status_code=404, detail="Source not found")
     
     if "mappings" not in source_data:
         raise HTTPException(status_code=400, detail="Mappings not confirmed yet")
     
-    # Create processing job
+    # Create processing job (owner-scoped so dashboards stay per-user)
     job_id = str(uuid.uuid4())[:8]
     job = ProcessingJob(
         job_id=job_id,
@@ -51,8 +61,14 @@ async def start_processing(source_id: str, background_tasks: BackgroundTasks):
         total=source_data.get("total_records", 0),
         started_at=datetime.utcnow(),
     )
+    job_data = job.model_dump()
+    owner_uid = get_owner_uid(user) or source_data.get("owner_uid")
+    if owner_uid:
+        job_data["owner_uid"] = owner_uid
+    if user.get("email"):
+        job_data["owner_email"] = user.get("email")
     
-    db.collection(COLLECTION_PROCESSING_JOBS).document(job_id).set(job.model_dump())
+    db.collection(COLLECTION_PROCESSING_JOBS).document(job_id).set(job_data)
     
     # Update source status
     doc_ref.update({"status": SourceStatus.CLEANING, "updated_at": datetime.utcnow()})
@@ -96,7 +112,9 @@ async def run_full_pipeline(job_id: str, source_id: str, source_data: dict):
             for field_type, value in normalized.items():
                 if field_type not in ("email", "phone", "username", "member_id") or not value.normalized_value:
                     continue
-                if await find_matching_records(value.normalized_value, field_type):
+                # Owner-scoped match counting: only the source owner's records count.
+                owner_uid = source_data.get("owner_uid")
+                if await find_matching_records(value.normalized_value, field_type, owner_uid=owner_uid):
                     matched += 1
                     break
 
@@ -156,29 +174,43 @@ async def run_full_pipeline(job_id: str, source_id: str, source_data: dict):
 
 
 @router.get("/jobs/{job_id}", response_model=ProcessingJob)
-async def get_job_status(job_id: str):
+async def get_job_status(job_id: str, request: Request):
     """Get processing job status."""
+    user = _user(request)
     doc = db.collection(COLLECTION_PROCESSING_JOBS).document(job_id).get()
-    if not doc.exists:
+    if not doc.exists or not is_visible(doc.to_dict(), user):
         raise HTTPException(status_code=404, detail="Job not found")
     return ProcessingJob(**doc.to_dict())
 
 
 @router.get("/jobs", response_model=List[ProcessingJob])
-async def list_jobs(source_id: str = None, limit: int = 20):
-    """List processing jobs."""
+async def list_jobs(request: Request, source_id: str = None, limit: int = 20):
+    """List processing jobs (owner-scoped; new users see an empty list)."""
+    user = _user(request)
     query = db.collection(COLLECTION_PROCESSING_JOBS).order_by("created_at", direction="DESCENDING").limit(limit)
     if source_id:
         query = query.where("source_id", "==", source_id)
     docs = query.stream()
-    return [ProcessingJob(**doc.to_dict()) for doc in docs]
+    out = []
+    for d in docs:
+        data = d.to_dict()
+        if not is_visible(data, user):
+            # Legacy jobs without owner are visible to anon/admin only.
+            continue
+        try:
+            out.append(ProcessingJob(**data))
+        except Exception:
+            continue
+    return out
 
 
 @router.post("/reprocess/{source_id}")
-async def reprocess_source(source_id: str, background_tasks: BackgroundTasks):
+async def reprocess_source(source_id: str, background_tasks: BackgroundTasks, request: Request):
     """Reprocess a source from scratch."""
+    user = _user(request)
     doc_ref = db.collection(COLLECTION_SOURCES).document(source_id)
-    if not doc_ref.get().exists:
+    snap = doc_ref.get()
+    if not snap.exists or not is_visible(snap.to_dict(), user):
         raise HTTPException(status_code=404, detail="Source not found")
     
     # Delete existing records
@@ -198,21 +230,22 @@ async def reprocess_source(source_id: str, background_tasks: BackgroundTasks):
     })
     
     # Start new processing
-    return await start_processing(source_id, background_tasks)
+    return await start_processing(source_id, background_tasks, request)
 
 
 @router.post("/jobs/{job_id}/resume")
-async def resume_job(job_id: str, background_tasks: BackgroundTasks):
+async def resume_job(job_id: str, background_tasks: BackgroundTasks, request: Request):
     """Resume an interrupted job from its checkpoint (§5)."""
+    user = _user(request)
     doc = db.collection(COLLECTION_PROCESSING_JOBS).document(job_id).get()
-    if not doc.exists:
+    if not doc.exists or not is_visible(doc.to_dict(), user):
         raise HTTPException(status_code=404, detail="Job not found")
     job = doc.to_dict()
     if job.get("status") == ProcessingStatus.COMPLETED:
         return ProcessingJob(**job)
     source_id = job["source_id"]
     source = db.collection(COLLECTION_SOURCES).document(source_id).get()
-    if not source.exists:
+    if not source.exists or not is_visible(source.to_dict(), user):
         raise HTTPException(status_code=404, detail="Source not found")
     db.collection(COLLECTION_PROCESSING_JOBS).document(job_id).update(
         {"status": ProcessingStatus.RUNNING, "updated_at": datetime.utcnow()}
@@ -222,11 +255,12 @@ async def resume_job(job_id: str, background_tasks: BackgroundTasks):
 
 
 @router.get("/stats/global")
-async def get_global_stats():
-    """Persistent import + matching statistics (§20)."""
-    sources = list(db.collection(COLLECTION_SOURCES).stream())
-    jobs = list(db.collection(COLLECTION_PROCESSING_JOBS).stream())
-    entities = list(db.collection(COLLECTION_ENTITIES).stream())
+async def get_global_stats(request: Request):
+    """Persistent import + matching statistics (§20, owner-scoped)."""
+    user = _user(request)
+    sources = [s for s in db.collection(COLLECTION_SOURCES).stream() if is_visible(s.to_dict(), user)]
+    jobs = [j for j in db.collection(COLLECTION_PROCESSING_JOBS).stream() if is_visible(j.to_dict(), user)]
+    entities = [e for e in db.collection(COLLECTION_ENTITIES).stream() if is_visible(e.to_dict(), user)]
 
     total_tables = sum(len((s.to_dict().get("tables") or []) or [1]) if s.to_dict().get("tables") else 1 for s in sources)
     total_records = sum(s.to_dict().get("total_records", 0) for s in sources)

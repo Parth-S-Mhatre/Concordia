@@ -7,7 +7,9 @@ from backend.services.normalization import normalize_value
 import re
 
 
-async def progressive_enrichment(initial_query: str, fuzzy: bool = False) -> Optional[Tuple[Entity, List[EnrichmentStep], List[str]]]:
+async def progressive_enrichment(initial_query: str, fuzzy: bool = False, user: dict | None = None) -> Optional[Tuple[Entity, List[EnrichmentStep], List[str]]]:
+    from backend.services.auth import get_owner_uid, is_visible
+    owner_uid = get_owner_uid(user)
     query = initial_query.strip()
     if not query:
         return None
@@ -31,11 +33,23 @@ async def progressive_enrichment(initial_query: str, fuzzy: bool = False) -> Opt
             continue
         visited.add(visit_key)
         
-        records = await find_matching_records(identifier_value, identifier_type)
+        records = await find_matching_records(identifier_value, identifier_type, user=user, owner_uid=owner_uid)
         if not records and fuzzy and identifier_type in ("email", "username"):
             for candidate, _ in fuzzy_candidates(identifier_value, list(get_index(identifier_type).keys()))[:3]:
-                records.extend(await find_matching_records(candidate, identifier_type))
+                records.extend(await find_matching_records(candidate, identifier_type, user=user, owner_uid=owner_uid))
         
+        if records:
+            # Drop records whose source belongs to another owner (extra guard).
+            filtered = []
+            for r in records:
+                try:
+                    sdoc = db.collection(COLLECTION_SOURCES).document(r.source_id).get()
+                    if sdoc.exists and not is_visible(sdoc.to_dict(), user):
+                        continue
+                except Exception:
+                    pass
+                filtered.append(r)
+            records = filtered
         if records:
             step_counter += 1
             source_ids = set(r.source_id for r in records)
@@ -79,7 +93,7 @@ async def progressive_enrichment(initial_query: str, fuzzy: bool = False) -> Opt
     if not matched_records:
         return None
     
-    entity = await build_master_entity(matched_records)
+    entity = await build_master_entity(matched_records, user=user)
 
     # Persist enrichment trail + timeline on the entity for traceability UI.
     trail = [step.model_dump() for step in enrichment_steps]
@@ -129,9 +143,12 @@ def normalize_identifier(query: str, identifier_type: str) -> str:
     return norm.normalized_value
 
 
-async def build_master_entity(matched_records: List[Dict]) -> Entity:
+async def build_master_entity(matched_records: List[Dict], user: dict | None = None) -> Entity:
     import uuid
     from datetime import datetime
+    from backend.services.auth import get_owner_uid
+
+    owner_uid = get_owner_uid(user)
     
     field_values: Dict[str, List[Dict]] = {
         "email": [], "phone": [], "username": [], "member_id": [],
@@ -168,7 +185,7 @@ async def build_master_entity(matched_records: List[Dict]) -> Entity:
             ]
             entity_fields[field_type] = EntityField(**resolve_conflict(ranked))
     
-    entity_id = generate_entity_id(entity_fields)
+    entity_id = generate_entity_id(entity_fields, owner_uid=owner_uid)
     
     existing = db.collection(COLLECTION_ENTITIES).document(entity_id).get()
     if existing.exists:
@@ -181,20 +198,36 @@ async def build_master_entity(matched_records: List[Dict]) -> Entity:
             **entity_fields,
         )
     
-    db.collection(COLLECTION_ENTITIES).document(entity_id).set(entity.model_dump())
+    payload = entity.model_dump()
+    if owner_uid:
+        payload["owner_uid"] = owner_uid
+    if user and user.get("email"):
+        payload["owner_email"] = user.get("email")
+    db.collection(COLLECTION_ENTITIES).document(entity_id).set(payload)
+    # Keep the in-memory object in sync for the API response.
+    entity = Entity(**payload)
     return entity
 
 
-def generate_entity_id(fields: Dict[str, EntityField]) -> str:
+def generate_entity_id(fields: Dict[str, EntityField], owner_uid: str | None = None) -> str:
+    base = None
     for field_type in ["email", "phone", "username", "member_id"]:
         if field_type in fields:
             value = fields[field_type].value
             import hashlib
             hash_input = f"{field_type}:{value}".encode()
             hash_val = hashlib.md5(hash_input).hexdigest()[:8]
-            return f"ENT-{hash_val.upper()}"
-    import uuid
-    return f"ENT-{str(uuid.uuid4())[:8].upper()}"
+            base = f"ENT-{hash_val.upper()}"
+            break
+    if base is None:
+        import uuid
+        base = f"ENT-{str(uuid.uuid4())[:8].upper()}"
+    # Namespace per owner so two users with the same email never collide.
+    if owner_uid:
+        import hashlib
+        suffix = hashlib.md5(owner_uid.encode()).hexdigest()[:4].upper()
+        return f"{base}-{suffix}"
+    return base
 
 
 def merge_entities(existing: Entity, new_fields: Dict[str, EntityField], new_source_ids: Set[str], new_record_ids: List[str]) -> Entity:
